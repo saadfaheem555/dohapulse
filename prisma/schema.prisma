@@ -1,0 +1,343 @@
+// DohaPulse — Prisma schema
+// Global Sporting Event Management Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------- Enums -----------------------------
+
+enum Role {
+  ADMIN
+  MANAGER
+  ENGINEER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum EventType {
+  ASIAN_GAMES
+  OLYMPICS
+  WORLD_CUP
+  COMMONWEALTH_GAMES
+  CONTINENTAL_CHAMPIONSHIP
+  OTHER
+}
+
+enum EventStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum PhaseName {
+  BIDDING
+  PLANNING
+  CONSTRUCTION
+  TESTING
+  READINESS
+  GAMES_TIME
+  LEGACY
+}
+
+enum PhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+}
+
+enum VenueType {
+  STADIUM
+  ARENA
+  AQUATICS_CENTER
+  INDOOR_HALL
+  OUTDOOR_FIELD
+  TRAINING_FACILITY
+  OPERATIONS_CENTER
+  ACCOMMODATION
+  OTHER
+}
+
+enum VenueStatus {
+  PLANNED
+  UNDER_CONSTRUCTION
+  READY
+  OPERATIONAL
+  DECOMMISSIONED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Project management lifecycle process groups (PMBOK methodology).
+// Every project/event is run through these stages.
+enum LifecycleStage {
+  INITIATION
+  PLANNING
+  EXECUTION
+  MONITORING_CONTROL
+  CLOSURE
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  DEADLINE_APPROACHING
+  PHASE_TRANSITION
+  ASSIGNMENT_CREATED
+  MENTION
+  SYSTEM
+}
+
+// ----------------------------- Models -----------------------------
+
+model User {
+  id             String     @id @default(cuid())
+  name           String
+  email          String     @unique
+  passwordHash   String
+  role           Role       @default(ENGINEER)
+  department     String?
+  specialization String?
+  phone          String?
+  profileImage   String?
+  status         UserStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Relations
+  createdTasks    Task[]            @relation("TaskCreator")
+  assignedTasks   Task[]            @relation("TaskAssignee")
+  assignments     StaffAssignment[]
+  notifications   Notification[]
+  comments        TaskComment[]
+  auditLogs       AuditLog[]
+
+  @@index([role])
+  @@index([department])
+  @@index([status])
+}
+
+model Event {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  type         EventType   @default(ASIAN_GAMES)
+  location     String
+  country      String
+  startDate    DateTime
+  endDate      DateTime
+  currentPhase PhaseName   @default(PLANNING)
+  status       EventStatus @default(PLANNING)
+  logoUrl      String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  phases      EventPhase[]
+  venues      Venue[]
+  tasks       Task[]
+  assignments StaffAssignment[]
+
+  @@index([status])
+  @@index([type])
+}
+
+model EventPhase {
+  id        String      @id @default(cuid())
+  eventId   String
+  name      PhaseName
+  startDate DateTime
+  endDate   DateTime
+  status    PhaseStatus @default(NOT_STARTED)
+  progress  Int         @default(0) // 0-100, derived from tasks
+  order     Int // explicit ordering of phases
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // Relations
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  assignments StaffAssignment[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
+
+model Venue {
+  id          String      @id @default(cuid())
+  eventId     String
+  name        String
+  location    String
+  capacity    Int?
+  type        VenueType   @default(STADIUM)
+  status      VenueStatus @default(PLANNED)
+  description String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  assignments StaffAssignment[]
+
+  @@index([eventId])
+  @@index([status])
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  eventId      String
+  phaseId      String?
+  venueId      String?
+  parentTaskId String?
+  assigneeId   String?
+  creatorId    String
+  status         TaskStatus     @default(TODO)
+  priority       TaskPriority   @default(MEDIUM)
+  lifecycleStage LifecycleStage @default(PLANNING)
+  startDate    DateTime?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  progress     Int          @default(0) // 0-100
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  event       Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  phase       EventPhase?      @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  venue       Venue?           @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  parentTask  Task?            @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks    Task[]           @relation("TaskHierarchy")
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator     User             @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments    TaskComment[]
+  // Dependencies where this task is the dependent (it depends on others)
+  dependencies     TaskDependency[] @relation("DependentTask")
+  // Dependencies where this task is the prerequisite (others depend on it)
+  dependents       TaskDependency[] @relation("PrerequisiteTask")
+
+  @@index([eventId])
+  @@index([phaseId])
+  @@index([venueId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([lifecycleStage])
+  @@index([parentTaskId])
+}
+
+model TaskDependency {
+  id              String         @id @default(cuid())
+  taskId          String // the dependent task
+  dependsOnTaskId String // the prerequisite task
+  type            DependencyType @default(FINISH_TO_START)
+  createdAt       DateTime       @default(now())
+
+  task      Task @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn Task @relation("PrerequisiteTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+}
+
+model StaffAssignment {
+  id        String    @id @default(cuid())
+  userId    String
+  eventId   String
+  venueId   String?
+  phaseId   String?
+  role      String // role in the context of this assignment, e.g. "Network Lead"
+  startDate DateTime
+  endDate   DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venue Venue?      @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  phase EventPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([venueId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity])
+  @@index([userId])
+}

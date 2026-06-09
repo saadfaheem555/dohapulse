@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dohapulse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dohapulse
+      POSTGRES_PASSWORD: dohapulse
+      POSTGRES_DB: dohapulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - dohapulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dohapulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dohapulse_pgdata:
