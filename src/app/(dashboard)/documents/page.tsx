@@ -88,14 +88,15 @@ export default function DocumentsPage() {
             ? "Upload and manage your project documents"
             : "Review and manage documents from your engineers"
         }
-      >
-        {role === "ENGINEER" && (
-          <Button onClick={() => setShowUpload(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Document
-          </Button>
-        )}
-      </PageHeader>
+        action={
+          role === "ENGINEER" ? (
+            <Button onClick={() => setShowUpload(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Document
+            </Button>
+          ) : undefined
+        }
+      />
 
       {showUpload && (
         <DocumentUploadForm
