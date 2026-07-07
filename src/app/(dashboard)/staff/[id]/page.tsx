@@ -12,7 +12,8 @@ import {
   taskStatusLabels,
 } from "@/lib/labels";
 import { type TaskStatus } from "@prisma/client";
-import { Mail, Phone, Building2 } from "lucide-react";
+import { Mail, Phone, Building2, UserCheck } from "lucide-react";
+import { ManagerAssignment } from "@/components/staff/manager-assignment";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export default async function StaffDetailPage({
   const staff = await prisma.user.findUnique({
     where: { id: params.id },
     include: {
+      manager: { select: { id: true, name: true } },
+      engineers: { select: { id: true, name: true, department: true } },
       assignments: {
         include: {
           event: { select: { name: true } },
@@ -77,7 +80,31 @@ export default async function StaffDetailPage({
                   {staff.department}
                 </div>
               )}
+              {staff.manager && (
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <UserCheck className="h-4 w-4" />
+                  <span>Manager: <Link href={`/staff/${staff.manager.id}`} className="text-primary hover:underline">{staff.manager.name}</Link></span>
+                </div>
+              )}
             </div>
+            {staff.role === "ENGINEER" && (
+              <ManagerAssignment staffId={staff.id} currentManagerId={staff.manager?.id ?? null} />
+            )}
+            {staff.role === "MANAGER" && staff.engineers.length > 0 && (
+              <div className="mt-6">
+                <h3 className="mb-2 text-sm font-semibold">Assigned Engineers</h3>
+                <ul className="space-y-1">
+                  {staff.engineers.map((eng) => (
+                    <li key={eng.id}>
+                      <Link href={`/staff/${eng.id}`} className="text-sm text-primary hover:underline">
+                        {eng.name}
+                      </Link>
+                      {eng.department && <span className="ml-2 text-xs text-muted-foreground">({eng.department})</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { withAuth, requireAdmin, badRequest, ok } from "@/lib/api";
 import { updateUserSchema } from "@/lib/validations";
+import { notify } from "@/services/notifications";
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -23,6 +24,9 @@ export async function GET(
       phone: true,
       status: true,
       createdAt: true,
+      managerId: true,
+      manager: { select: { id: true, name: true } },
+      engineers: { select: { id: true, name: true, department: true, specialization: true } },
       assignments: {
         include: {
           event: { select: { name: true } },
@@ -68,11 +72,40 @@ export async function PATCH(
     return badRequest("Validation failed", parsed.error.flatten());
   }
 
+  // Validate managerId assignment
+  if (parsed.data.managerId !== undefined && parsed.data.managerId !== null) {
+    const target = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: { role: true },
+    });
+    if (target?.role !== "ENGINEER") {
+      return badRequest("Only engineers can be assigned to a manager");
+    }
+    const manager = await prisma.user.findUnique({
+      where: { id: parsed.data.managerId },
+      select: { role: true, name: true },
+    });
+    if (!manager || (manager.role !== "MANAGER" && manager.role !== "ADMIN")) {
+      return badRequest("managerId must reference a user with MANAGER role");
+    }
+  }
+
   const user = await prisma.user.update({
     where: { id: params.id },
     data: parsed.data,
-    select: { id: true, name: true, role: true, status: true },
+    select: { id: true, name: true, role: true, status: true, managerId: true },
   });
+
+  // Notify manager when engineer is assigned
+  if (parsed.data.managerId && parsed.data.managerId !== null) {
+    await notify({
+      userId: parsed.data.managerId,
+      title: "Engineer assigned to you",
+      message: `${user.name} has been assigned to you.`,
+      type: "ENGINEER_ASSIGNED",
+      link: `/staff/${user.id}`,
+    });
+  }
 
   return ok(user);
 }

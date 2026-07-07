@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,11 @@ export function KanbanBoard({ tasks }: { tasks: TaskListItem[] }) {
   const router = useRouter();
   const [items, setItems] = useState(tasks);
   const [dragId, setDragId] = useState<string | null>(null);
+
+  // Sync local state when tasks prop changes (e.g. filter change)
+  useEffect(() => {
+    setItems(tasks);
+  }, [tasks]);
 
   async function moveTask(id: string, status: TaskStatus) {
     const prev = items;

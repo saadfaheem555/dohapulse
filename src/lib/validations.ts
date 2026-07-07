@@ -17,6 +17,7 @@ export const updateUserSchema = z.object({
   specialization: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   status: z.enum(["ACTIVE", "INACTIVE", "PENDING"]).optional(),
+  managerId: z.string().optional().nullable(),
 });
 
 export const createEventSchema = z.object({
@@ -113,3 +114,26 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
+
+export const createDocumentSchema = z.object({
+  title: z.string().min(2),
+  description: z.string().optional().nullable(),
+  fileUrl: z.string().url(),
+  fileName: z.string().min(1),
+  fileSize: z.number().int().positive().max(25 * 1024 * 1024), // 25MB max
+  mimeType: z.string().min(1),
+  eventId: z.string().min(1),
+  taskId: z.string().optional().nullable(),
+});
+
+export const reviewDocumentSchema = z.object({
+  status: z.enum(["APPROVED", "REVISION_REQUESTED"]),
+  reviewComment: z.string().optional().nullable(),
+});
+
+export const shareDocumentSchema = z.object({
+  sharedWithId: z.string().min(1),
+  message: z.string().optional().nullable(),
+});
+
+export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;

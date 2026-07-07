@@ -14,6 +14,7 @@ import {
   LogOut,
   Route,
   GanttChartSquare,
+  FileText,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { roleLabels } from "@/lib/labels";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/lifecycle", label: "Lifecycle Tracking", icon: GanttChartSquare, managerOnly: true },
   { href: "/venues", label: "Venues", icon: MapPin },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/documents", label: "Documents", icon: FileText },
   { href: "/staff", label: "Staff", icon: Users },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];

@@ -28,6 +28,8 @@ async function main() {
   console.log("🌱 Seeding DohaPulse…");
 
   // ---- Clean slate (dev only) ----
+  await prisma.documentShare.deleteMany();
+  await prisma.document.deleteMany();
   await prisma.taskDependency.deleteMany();
   await prisma.taskComment.deleteMany();
   await prisma.task.deleteMany();
@@ -84,6 +86,7 @@ async function main() {
           department: e.dept,
           specialization: e.spec,
           phone: `+974 5000 01${String(i).padStart(2, "0")}`,
+          managerId: i < 3 ? manager.id : null, // first 3 engineers assigned to manager
         },
       })
     )

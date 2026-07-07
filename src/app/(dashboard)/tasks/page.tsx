@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TasksView } from "@/components/tasks/tasks-view";
 import { type Prisma } from "@prisma/client";
 import { type TaskListItem } from "@/components/tasks/types";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,28 @@ export default async function TasksPage({
   const user = await getCurrentUser();
   if (!user) return null;
 
+  // Engineer scoping: only see tasks for assigned events or directly assigned tasks
+  let engineerScope: Prisma.TaskWhereInput = {};
+  let eventFilter: Prisma.EventWhereInput = {};
+  if (user.role === "ENGINEER") {
+    const assignedEventIds = (
+      await prisma.staffAssignment.findMany({
+        where: { userId: user.id },
+        select: { eventId: true },
+      })
+    ).map((a) => a.eventId);
+    engineerScope = {
+      OR: [
+        { eventId: { in: assignedEventIds } },
+        { assigneeId: user.id },
+      ],
+    };
+    eventFilter = { id: { in: assignedEventIds } };
+  }
+
   const where: Prisma.TaskWhereInput = {
     AND: [
+      engineerScope,
       searchParams.eventId ? { eventId: searchParams.eventId } : {},
       searchParams.status ? { status: searchParams.status as never } : {},
       searchParams.assigneeId ? { assigneeId: searchParams.assigneeId } : {},
@@ -36,6 +57,7 @@ export default async function TasksPage({
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
     }),
     prisma.event.findMany({
+      where: eventFilter,
       select: {
         id: true,
         name: true,
@@ -72,12 +94,14 @@ export default async function TasksPage({
         title="Tasks"
         description="Operational tasks across the full event journey — plan, assign, and track."
       />
-      <TasksView
-        tasks={tasks}
-        events={events}
-        staff={staff}
-        canManage={canManage(user.role)}
-      />
+      <Suspense fallback={null}>
+        <TasksView
+          tasks={tasks}
+          events={events}
+          staff={staff}
+          canManage={canManage(user.role)}
+        />
+      </Suspense>
     </div>
   );
 }

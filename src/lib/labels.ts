@@ -7,6 +7,7 @@ import {
   type EventStatus,
   type Role,
   type LifecycleStage,
+  type DocumentStatus,
 } from "@prisma/client";
 
 type Color =
@@ -149,4 +150,18 @@ export const lifecycleColors: Record<LifecycleStage, Color> = {
   EXECUTION: "orange",
   MONITORING_CONTROL: "yellow",
   CLOSURE: "green",
+};
+
+// ----- Document status -----
+
+export const documentStatusLabels: Record<DocumentStatus, string> = {
+  PENDING: "Pending Review",
+  APPROVED: "Approved",
+  REVISION_REQUESTED: "Revision Requested",
+};
+
+export const documentStatusColors: Record<DocumentStatus, Color> = {
+  PENDING: "yellow",
+  APPROVED: "green",
+  REVISION_REQUESTED: "red",
 };

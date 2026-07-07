@@ -8,7 +8,18 @@ export async function GET() {
   const auth = await withAuth();
   if ("response" in auth) return auth.response;
 
+  // Engineers only see events they are assigned to
+  let where = {};
+  if (auth.user.role === "ENGINEER") {
+    const assignedEventIds = await prisma.staffAssignment.findMany({
+      where: { userId: auth.user.id },
+      select: { eventId: true },
+    });
+    where = { id: { in: assignedEventIds.map((a) => a.eventId) } };
+  }
+
   const events = await prisma.event.findMany({
+    where,
     include: {
       _count: { select: { venues: true, tasks: true, assignments: true } },
     },

@@ -27,6 +27,10 @@ export default async function StaffPage({
 
   const where: Prisma.UserWhereInput = {
     AND: [
+      // Managers only see their assigned engineers (+ themselves)
+      user.role === "MANAGER"
+        ? { OR: [{ managerId: user.id }, { id: user.id }] }
+        : {},
       searchParams.q
         ? {
             OR: [
@@ -58,6 +62,7 @@ export default async function StaffPage({
       department: true,
       specialization: true,
       status: true,
+      manager: { select: { id: true, name: true } },
       _count: { select: { assignedTasks: true, assignments: true } },
     },
     orderBy: { name: "asc" },
@@ -80,7 +85,7 @@ export default async function StaffPage({
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Department</th>
-                <th className="px-4 py-3 font-medium">Specialization</th>
+                <th className="px-4 py-3 font-medium">Manager</th>
                 <th className="px-4 py-3 font-medium">Tasks</th>
                 <th className="px-4 py-3 font-medium">Assignments</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -89,8 +94,7 @@ export default async function StaffPage({
             <tbody className="divide-y divide-border">
               {staff.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
+                    <td colSpan={8}
                     className="px-4 py-12 text-center text-muted-foreground"
                   >
                     No staff found.
@@ -129,7 +133,15 @@ export default async function StaffPage({
                       {s.department ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {s.specialization ?? "—"}
+                      {s.manager ? (
+                        <Link href={`/staff/${s.manager.id}`} className="text-primary hover:underline">
+                          {s.manager.name}
+                        </Link>
+                      ) : s.role === "ENGINEER" ? (
+                        <span className="text-yellow-600">Unassigned</span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {s._count.assignedTasks}

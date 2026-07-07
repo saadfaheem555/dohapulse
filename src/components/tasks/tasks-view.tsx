@@ -83,7 +83,7 @@ export function TasksView({
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Select
-            defaultValue={searchParams.get("eventId") ?? ""}
+            value={searchParams.get("eventId") ?? ""}
             onChange={(e) => updateParam("eventId", e.target.value)}
             className="w-48"
           >
@@ -95,7 +95,7 @@ export function TasksView({
             ))}
           </Select>
           <Select
-            defaultValue={searchParams.get("status") ?? ""}
+            value={searchParams.get("status") ?? ""}
             onChange={(e) => updateParam("status", e.target.value)}
             className="w-40"
           >

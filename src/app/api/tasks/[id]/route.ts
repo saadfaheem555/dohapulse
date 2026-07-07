@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { withAuth, badRequest, ok } from "@/lib/api";
 import { updateTaskSchema } from "@/lib/validations";
-import { notify } from "@/services/notifications";
+import { notify, notifyManager } from "@/services/notifications";
 import { recomputePhaseProgress } from "@/services/events";
 import { canManage } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
@@ -113,6 +113,16 @@ export async function PATCH(
   const phaseToUpdate = task.phaseId ?? existing.phaseId;
   if (phaseToUpdate) {
     await recomputePhaseProgress(phaseToUpdate);
+  }
+
+  // If engineer updated their own task, notify their manager
+  if (auth.user.role === "ENGINEER") {
+    await notifyManager(auth.user.id, {
+      title: "Task updated by engineer",
+      message: `${auth.user.name ?? "An engineer"} updated "${task.title}"${d.status ? ` → ${d.status}` : ""}`,
+      type: "TASK_UPDATED",
+      link: `/tasks/${task.id}`,
+    });
   }
 
   return ok(task);

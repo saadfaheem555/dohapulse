@@ -117,6 +117,17 @@ enum NotificationType {
   ASSIGNMENT_CREATED
   MENTION
   SYSTEM
+  DOCUMENT_UPLOADED
+  DOCUMENT_REVIEWED
+  REVISION_REQUESTED
+  DOCUMENT_SHARED
+  ENGINEER_ASSIGNED
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
 }
 
 // ----------------------------- Models -----------------------------
@@ -132,20 +143,28 @@ model User {
   phone          String?
   profileImage   String?
   status         UserStatus @default(ACTIVE)
+  managerId      String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   // Relations
+  manager         User?             @relation("ManagerEngineers", fields: [managerId], references: [id], onDelete: SetNull)
+  engineers       User[]            @relation("ManagerEngineers")
   createdTasks    Task[]            @relation("TaskCreator")
   assignedTasks   Task[]            @relation("TaskAssignee")
   assignments     StaffAssignment[]
   notifications   Notification[]
   comments        TaskComment[]
   auditLogs       AuditLog[]
+  uploadedDocuments   Document[]      @relation("DocumentUploader")
+  reviewedDocuments   Document[]      @relation("DocumentReviewer")
+  sharedDocuments     DocumentShare[] @relation("DocumentSharer")
+  receivedShares      DocumentShare[] @relation("DocumentReceiver")
 
   @@index([role])
   @@index([department])
   @@index([status])
+  @@index([managerId])
 }
 
 model Event {
@@ -168,6 +187,7 @@ model Event {
   venues      Venue[]
   tasks       Task[]
   assignments StaffAssignment[]
+  documents   Document[]
 
   @@index([status])
   @@index([type])
@@ -250,6 +270,7 @@ model Task {
   dependencies     TaskDependency[] @relation("DependentTask")
   // Dependencies where this task is the prerequisite (others depend on it)
   dependents       TaskDependency[] @relation("PrerequisiteTask")
+  documents        Document[]
 
   @@index([eventId])
   @@index([phaseId])
@@ -325,6 +346,52 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+}
+
+model Document {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  fileUrl       String
+  fileName      String
+  fileSize      Int
+  mimeType      String
+  uploadedById  String
+  eventId       String
+  taskId        String?
+  status        DocumentStatus @default(PENDING)
+  reviewComment String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  uploadedBy  User   @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  reviewer    User?  @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  event       Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  task        Task?  @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  shares      DocumentShare[]
+
+  @@index([uploadedById])
+  @@index([eventId])
+  @@index([status])
+}
+
+model DocumentShare {
+  id           String   @id @default(cuid())
+  documentId   String
+  sharedById   String
+  sharedWithId String
+  message      String?
+  createdAt    DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedBy   User     @relation("DocumentSharer", fields: [sharedById], references: [id], onDelete: Cascade)
+  sharedWith User     @relation("DocumentReceiver", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, sharedWithId])
+  @@index([sharedById])
+  @@index([sharedWithId])
 }
 
 model AuditLog {

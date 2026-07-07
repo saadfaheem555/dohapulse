@@ -18,8 +18,25 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const q = searchParams.get("q")?.trim();
 
+  // Engineers can only see tasks for their assigned events or tasks assigned to them
+  let engineerScope: Prisma.TaskWhereInput = {};
+  if (auth.user.role === "ENGINEER") {
+    const assignedEventIds = await prisma.staffAssignment.findMany({
+      where: { userId: auth.user.id },
+      select: { eventId: true },
+    });
+    const eventIds = assignedEventIds.map((a) => a.eventId);
+    engineerScope = {
+      OR: [
+        { eventId: { in: eventIds } },
+        { assigneeId: auth.user.id },
+      ],
+    };
+  }
+
   const where: Prisma.TaskWhereInput = {
     AND: [
+      engineerScope,
       eventId ? { eventId } : {},
       phaseId ? { phaseId } : {},
       venueId ? { venueId } : {},

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { withAuth, badRequest, ok } from "@/lib/api";
-import { notify } from "@/services/notifications";
+import { notify, notifyManager } from "@/services/notifications";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -38,6 +38,16 @@ export async function POST(
       userId: task.assigneeId,
       title: "New comment on your task",
       message: `${auth.user.name ?? "Someone"} commented on "${task.title}"`,
+      type: "TASK_UPDATED",
+      link: `/tasks/${params.id}`,
+    });
+  }
+
+  // If engineer commented, also notify their manager
+  if (auth.user.role === "ENGINEER") {
+    await notifyManager(auth.user.id, {
+      title: "Engineer commented on a task",
+      message: `${auth.user.name ?? "An engineer"} commented on "${task?.title}"`,
       type: "TASK_UPDATED",
       link: `/tasks/${params.id}`,
     });

@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
   const users = await prisma.user.findMany({
     where: {
       AND: [
+        // Managers only see their assigned engineers (+ themselves)
+        auth.user.role === "MANAGER"
+          ? { OR: [{ managerId: auth.user.id }, { id: auth.user.id }] }
+          : {},
         q
           ? {
               OR: [
