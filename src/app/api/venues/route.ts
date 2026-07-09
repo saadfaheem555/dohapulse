@@ -10,8 +10,20 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
 
+  // Non-admins only see venues for their assigned events
+  let eventFilter: { eventId?: string | { in: string[] } } = {};
+  if (eventId) {
+    eventFilter = { eventId };
+  } else if (auth.user.role !== "ADMIN") {
+    const assignedEventIds = await prisma.staffAssignment.findMany({
+      where: { userId: auth.user.id },
+      select: { eventId: true },
+    });
+    eventFilter = { eventId: { in: assignedEventIds.map((a) => a.eventId) } };
+  }
+
   const venues = await prisma.venue.findMany({
-    where: eventId ? { eventId } : {},
+    where: eventFilter,
     include: {
       event: { select: { name: true } },
       _count: { select: { tasks: true, assignments: true } },

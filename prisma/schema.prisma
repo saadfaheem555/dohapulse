@@ -131,6 +131,12 @@ enum DocumentStatus {
   REVISION_REQUESTED
 }
 
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
 // ----------------------------- Models -----------------------------
 
 model User {
@@ -161,6 +167,8 @@ model User {
   reviewedDocuments   Document[]      @relation("DocumentReviewer")
   sharedDocuments     DocumentShare[] @relation("DocumentSharer")
   receivedShares      DocumentShare[] @relation("DocumentReceiver")
+  createdProjects     Project[]       @relation("ProjectCreator")
+  managedProjects     Project[]       @relation("ProjectManager")
 
   @@index([role])
   @@index([department])
@@ -189,6 +197,7 @@ model Event {
   tasks       Task[]
   assignments StaffAssignment[]
   documents   Document[]
+  projects    Project[]
 
   @@index([status])
   @@index([type])
@@ -408,4 +417,40 @@ model AuditLog {
 
   @@index([entity])
   @@index([userId])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  creatorId   String
+  managerId   String?
+  eventId     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  creator       User                @relation("ProjectCreator", fields: [creatorId], references: [id])
+  manager       User?               @relation("ProjectManager", fields: [managerId], references: [id])
+  event         Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  connectionsFrom ProjectConnection[] @relation("ProjectFrom")
+  connectionsTo   ProjectConnection[] @relation("ProjectTo")
+
+  @@index([creatorId])
+  @@index([managerId])
+  @@index([eventId])
+}
+
+model ProjectConnection {
+  id            String   @id @default(cuid())
+  fromProjectId String
+  toProjectId   String
+  createdAt     DateTime @default(now())
+
+  fromProject Project @relation("ProjectFrom", fields: [fromProjectId], references: [id], onDelete: Cascade)
+  toProject   Project @relation("ProjectTo", fields: [toProjectId], references: [id], onDelete: Cascade)
+
+  @@unique([fromProjectId, toProjectId])
+  @@index([fromProjectId])
+  @@index([toProjectId])
 }

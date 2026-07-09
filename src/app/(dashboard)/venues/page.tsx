@@ -30,9 +30,26 @@ export default async function VenuesPage({
   const user = await getCurrentUser();
   if (!user) return null;
 
+  // Non-admins only see venues for their assigned events
+  let venueWhere: Record<string, unknown> = searchParams.eventId ? { eventId: searchParams.eventId } : {};
+  let eventWhere: Record<string, unknown> = {};
+  if (user.role !== "ADMIN") {
+    const assignedEventIds = await prisma.staffAssignment.findMany({
+      where: { userId: user.id },
+      select: { eventId: true },
+    });
+    const eventIds = assignedEventIds.map((a: { eventId: string }) => a.eventId);
+    if (searchParams.eventId) {
+      venueWhere = { eventId: searchParams.eventId };
+    } else {
+      venueWhere = { eventId: { in: eventIds } };
+    }
+    eventWhere = { id: { in: eventIds } };
+  }
+
   const [venues, events] = await Promise.all([
     prisma.venue.findMany({
-      where: searchParams.eventId ? { eventId: searchParams.eventId } : {},
+      where: venueWhere,
       include: {
         event: { select: { name: true } },
         _count: { select: { tasks: true, assignments: true } },
@@ -40,6 +57,7 @@ export default async function VenuesPage({
       orderBy: { name: "asc" },
     }),
     prisma.event.findMany({
+      where: eventWhere,
       select: { id: true, name: true },
       orderBy: { startDate: "asc" },
     }),

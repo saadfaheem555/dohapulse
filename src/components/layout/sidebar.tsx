@@ -16,6 +16,7 @@ import {
   Route,
   GanttChartSquare,
   FileText,
+  FolderKanban,
   Menu,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import { roleLabels } from "@/lib/labels";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/events", label: "Events", icon: CalendarRange },
   { href: "/journey", label: "Event Journey", icon: Route },
   { href: "/lifecycle", label: "Lifecycle Tracking", icon: GanttChartSquare, managerOnly: true },
