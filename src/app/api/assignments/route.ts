@@ -41,6 +41,27 @@ export async function POST(req: NextRequest) {
   }
 
   const d = parsed.data;
+
+  // Managers can only assign their own engineers to events they are assigned to
+  if (auth.user.role === "MANAGER") {
+    // Verify the manager is assigned to this event
+    const managerAssignment = await prisma.staffAssignment.findFirst({
+      where: { userId: auth.user.id, eventId: d.eventId },
+    });
+    if (!managerAssignment) {
+      return badRequest("You can only assign staff to events you are assigned to");
+    }
+
+    // Verify the target user is one of their engineers
+    const targetUser = await prisma.user.findUnique({
+      where: { id: d.userId },
+      select: { role: true, managerId: true },
+    });
+    if (!targetUser || targetUser.role !== "ENGINEER" || targetUser.managerId !== auth.user.id) {
+      return badRequest("You can only assign your own engineers");
+    }
+  }
+
   const assignment = await prisma.staffAssignment.create({
     data: {
       userId: d.userId,

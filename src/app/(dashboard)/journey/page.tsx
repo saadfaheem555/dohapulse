@@ -13,7 +13,18 @@ export default async function JourneyPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  // Admins see all events; managers/engineers only see assigned events
+  let where = {};
+  if (user.role !== "ADMIN") {
+    const assignedEventIds = await prisma.staffAssignment.findMany({
+      where: { userId: user.id },
+      select: { eventId: true },
+    });
+    where = { id: { in: assignedEventIds.map((a: { eventId: string }) => a.eventId) } };
+  }
+
   const events = await prisma.event.findMany({
+    where,
     include: {
       phases: { orderBy: { order: "asc" } },
       _count: { select: { tasks: true } },
