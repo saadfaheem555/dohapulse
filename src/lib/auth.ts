@@ -24,9 +24,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-        });
+        // Retry once on connection failure (Supabase pooler can drop idle connections)
+        let user = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            user = await prisma.user.findUnique({
+              where: { email: credentials.email.toLowerCase() },
+            });
+            break;
+          } catch (e) {
+            if (attempt === 1) throw e;
+            await new Promise((r) => setTimeout(r, 500));
+          }
+        }
 
         if (!user || user.status !== "ACTIVE") {
           return null;
