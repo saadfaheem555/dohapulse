@@ -117,8 +117,28 @@ export async function DELETE(
   const auth = await withAuth();
   if ("response" in auth) return auth.response;
 
-  const forbidden = requireAdmin(auth.user);
-  if (forbidden) return forbidden;
+  const target = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { role: true, managerId: true },
+  });
+
+  if (!target) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Admin can delete managers and engineers
+  // Manager can only delete their own engineers
+  if (auth.user.role === "ADMIN") {
+    if (target.role === "ADMIN") {
+      return badRequest("Cannot delete another admin");
+    }
+  } else if (auth.user.role === "MANAGER") {
+    if (target.role !== "ENGINEER" || target.managerId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // Soft-deactivate rather than hard delete to preserve audit history
   await prisma.user.update({

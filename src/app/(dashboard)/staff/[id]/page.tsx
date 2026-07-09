@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
 import { type TaskStatus } from "@prisma/client";
 import { Mail, Phone, Building2, UserCheck } from "lucide-react";
 import { ManagerAssignment } from "@/components/staff/manager-assignment";
+import { DeleteStaffButton } from "@/components/staff/delete-staff-button";
 
 export const dynamic = "force-dynamic";
 
@@ -22,25 +24,28 @@ export default async function StaffDetailPage({
 }: {
   params: { id: string };
 }) {
-  const staff = await prisma.user.findUnique({
-    where: { id: params.id },
-    include: {
-      manager: { select: { id: true, name: true } },
-      engineers: { select: { id: true, name: true, department: true } },
-      assignments: {
-        include: {
-          event: { select: { name: true } },
-          venue: { select: { name: true } },
+  const [staff, currentUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: params.id },
+      include: {
+        manager: { select: { id: true, name: true } },
+        engineers: { select: { id: true, name: true, department: true } },
+        assignments: {
+          include: {
+            event: { select: { name: true } },
+            venue: { select: { name: true } },
+          },
+          orderBy: { startDate: "desc" },
         },
-        orderBy: { startDate: "desc" },
+        assignedTasks: {
+          include: { event: { select: { name: true } } },
+          orderBy: { dueDate: "asc" },
+          take: 50,
+        },
       },
-      assignedTasks: {
-        include: { event: { select: { name: true } } },
-        orderBy: { dueDate: "asc" },
-        take: 50,
-      },
-    },
-  });
+    }),
+    getCurrentUser(),
+  ]);
 
   if (!staff) notFound();
 
@@ -104,6 +109,12 @@ export default async function StaffDetailPage({
                   ))}
                 </ul>
               </div>
+            )}
+            {currentUser && currentUser.id !== staff.id && (
+              (currentUser.role === "ADMIN" && staff.role !== "ADMIN") ||
+              (currentUser.role === "MANAGER" && staff.role === "ENGINEER" && staff.manager?.id === currentUser.id)
+            ) && (
+              <DeleteStaffButton staffId={staff.id} staffName={staff.name} />
             )}
           </CardContent>
         </Card>
